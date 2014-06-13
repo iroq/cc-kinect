@@ -33,6 +33,8 @@
         /// </summary>
         private byte[] colorPixels;
 
+        private const short depthDelta = 4;
+
         /// <summary>
         /// Initializes a new instance of the MainWindow class.
         /// </summary>
@@ -124,41 +126,72 @@
                 {
                     // Copy the pixel data from the image to a temporary array
                     depthFrame.CopyDepthImagePixelDataTo(this.depthPixels);
-
                     // Get the min and max reliable depth for the current frame
+                    short[,] depthArray = new short[depthFrame.Width, depthFrame.Height];
+                    for (int i = 0; i < depthFrame.Width; i++)
+                    {
+                        for (int j = 0; j < depthFrame.Height; j++)
+                        {
+                            depthArray[i,j] = depthPixels[i*depthFrame.Height + j].Depth;
+                        }
+                    }
+
                     int minDepth = depthFrame.MinDepth;
                     int maxDepth = depthFrame.MaxDepth;
 
                     // Convert the depth to RGB
                     int colorPixelIndex = 0;
-                    for (int i = 0; i < this.depthPixels.Length; ++i)
+                    for (int i = 0; i < depthFrame.Width; ++i)
                     {
-                        // Get the depth for this pixel
-                        short depth = depthPixels[i].Depth;
+                        for (int j = 0; j < depthFrame.Height; j++)
+                        {
+                            short depth = depthArray[i, j];
+                            byte intensity = (byte) (depth >= minDepth && depth <= maxDepth ? depth : 0);
+                            // Write out blue byte
+                            this.colorPixels[colorPixelIndex++] = intensity;
 
-                        // To convert to a byte, we're discarding the most-significant
-                        // rather than least-significant bits.
-                        // We're preserving detail, although the intensity will "wrap."
-                        // Values outside the reliable depth range are mapped to 0 (black).
+                            // Write out green byte
+                            this.colorPixels[colorPixelIndex++] = intensity;
 
-                        // Note: Using conditionals in this loop could degrade performance.
-                        // Consider using a lookup table instead when writing production code.
-                        // See the KinectDepthViewer class used by the KinectExplorer sample
-                        // for a lookup table example.
-                        byte intensity = (byte)(depth >= minDepth && depth <= maxDepth ? depth : 0);
+                            // Write out red byte                        
+                            this.colorPixels[colorPixelIndex++] = intensity;
 
-                        // Write out blue byte
-                        this.colorPixels[colorPixelIndex++] = intensity;
+                            // We're outputting BGR, the last byte in the 32 bits is unused so skip it
+                            // If we were outputting BGRA, we would write alpha here.
+                            ++colorPixelIndex;
+                        }
+                        //// Get the depth for this pixel
+                        //short bottomDepth = GetDepthFromBottomPixel(depthPixels, i, depthFrame.Width);
+                        //short topDepth  = GetDepthFromTopPixel(depthPixels, i, depthFrame.Width);
+                        //short leftDepth = GetDepthFromLeftPixel(depthPixels, i, depthFrame.Width);
+                        //short rightDepth = GetDepthFromRightPixel(depthPixels, i, depthFrame.Width);
+                        //// To convert to a byte, we're discarding the most-significant
+                        //// rather than least-significant bits.
+                        //// We're preserving detail, although the intensity will "wrap."
+                        //// Values outside the reliable depth range are mapped to 0 (black).
+                        //// Note: Using conditionals in this loop could degrade performance.
+                        //// Consider using a lookup table instead when writing production code.
+                        //// See the KinectDepthViewer class used by the KinectExplorer sample
+                        //// for a lookup table example.
+                        //byte r, g, b;
+                        //if (Math.Abs(depth - topDepth) <= depthDelta)
+                        //{
+                        //    int topIndex = GetTopIndex(i, depthFrame.Width, depthPixels.Length);
+                        //    this.colorPixels[i*4] = this.colorPixels[topIndex];
+                        //}
+                        //if (Math.Abs(depth - rightDepth) <= depthDelta)
+                        //{
 
-                        // Write out green byte
-                        this.colorPixels[colorPixelIndex++] = intensity;
+                        //}
+                        //if (Math.Abs(depth - bottomDepth) <= depthDelta)
+                        //{
 
-                        // Write out red byte                        
-                        this.colorPixels[colorPixelIndex++] = intensity;
-                                                
-                        // We're outputting BGR, the last byte in the 32 bits is unused so skip it
-                        // If we were outputting BGRA, we would write alpha here.
-                        ++colorPixelIndex;
+                        //}
+                        //if (Math.Abs(depth - leftDepth) <= depthDelta)
+                        //{
+
+                        //}
+                        
                     }
 
                     // Write the pixel data into our bitmap
@@ -169,6 +202,68 @@
                         0);
                 }
             }
+        }
+
+        private short GetDepthFromBottomPixel(DepthImagePixel[] depthImagePixels, int i, int width)
+        {
+            int below = GetBottomIndex(i, width, depthImagePixels.Length);
+            return depthImagePixels[below].Depth;
+        }
+
+        private int GetBottomIndex(int i, int width, int length)
+        {
+            int row = i / width;
+            int column = i % width;
+            int below = (row + 1) * width + column;
+            if (below < 0 || below >= length)
+                return -1;
+            return below;
+        }
+
+        private short GetDepthFromTopPixel(DepthImagePixel[] depthImagePixels, int i, int width)
+        {
+            int above = GetTopIndex(i, width, depthImagePixels.Length);
+            return depthImagePixels[above].Depth;
+        }
+
+        private int GetTopIndex(int i, int width, int length)
+        {
+            int row = i / width;
+            int column = i % width;
+            int above = (row - 1) * width + column;
+            if (above < 0 || above >= length)
+                return -1;
+            return above;
+        }
+
+        private short GetDepthFromLeftPixel(DepthImagePixel[] depthImagePixels, int i, int width)
+        {
+            int row = i / width;
+            int column = i % width;
+            int left = row * width + column - 1;
+            if (left < 0 || left >= depthImagePixels.Length)
+                return -1;
+            return depthImagePixels[left].Depth;
+        }
+
+        private int GetLeftIndex(int i, int width, int length)
+        {
+            int row = i / width;
+            int column = i % width;
+            int above = (row - 1) * width + column;
+            if (above < 0 || above >= length)
+                return -1;
+            return above;
+        }
+
+        private short GetDepthFromRightPixel(DepthImagePixel[] depthImagePixels, int i, int width)
+        {
+            int row = i / width;
+            int column = i % width;
+            int right = row * width + column + 1;
+            if (right < 0 || right >= depthImagePixels.Length)
+                return -1;
+            return depthImagePixels[right].Depth;
         }
 
         /// <summary>
