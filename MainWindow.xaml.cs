@@ -1,4 +1,6 @@
-﻿using System.Threading;
+﻿using System.Collections.Generic;
+using System.Threading;
+using System.Windows.Documents;
 
 namespace CC.Kinect
 {
@@ -138,70 +140,63 @@ namespace CC.Kinect
                         }
                     }
 
+                    var depthArray2 = (short[,])depthArray.Clone();
+
                     int minDepth = depthFrame.MinDepth;
                     int maxDepth = depthFrame.MaxDepth;
 
                     // Convert the depth to RGB
                     int colorPixelIndex = 0;
-                    for (int i = 0; i < depthFrame.Width; ++i)
+                    for (int i = 0; i < depthFrame.Width - 1; ++i)
                     {
-                        for (int j = 0; j < depthFrame.Height; j++)
+                        for (int j = 0; j < depthFrame.Height - 1; j++)
                         {
-                            short depth = depthArray[i, j];
-                            byte intensity = (byte) (depth >= minDepth && depth <= maxDepth ? depth : 0);
-                            // Write out blue byte
-                            this.colorPixels[colorPixelIndex++] = intensity;
+                            short oldDepth = depthArray[i, j];
 
-                            // Write out green byte
-                            this.colorPixels[colorPixelIndex++] = intensity;
+                            if (oldDepth <= minDepth || oldDepth >= maxDepth)
+                                depthArray[i, j] = 0;
 
-                            // Write out red byte                        
-                            this.colorPixels[colorPixelIndex++] = intensity;
+                            short dx = (short)(depthArray[i, j] - depthArray[i + 1, j]);
+                            short dy = (short)(depthArray[i, j] - depthArray[i, j + 1]);
 
-                            // We're outputting BGR, the last byte in the 32 bits is unused so skip it
-                            // If we were outputting BGRA, we would write alpha here.
-                            ++colorPixelIndex;
+                            depthArray2[i, j] = (short)(dx + dy);
                         }
-                        //// Get the depth for this pixel
-                        //short bottomDepth = GetDepthFromBottomPixel(depthPixels, i, depthFrame.Width);
-                        //short topDepth  = GetDepthFromTopPixel(depthPixels, i, depthFrame.Width);
-                        //short leftDepth = GetDepthFromLeftPixel(depthPixels, i, depthFrame.Width);
-                        //short rightDepth = GetDepthFromRightPixel(depthPixels, i, depthFrame.Width);
-                        //// To convert to a byte, we're discarding the most-significant
-                        //// rather than least-significant bits.
-                        //// We're preserving detail, although the intensity will "wrap."
-                        //// Values outside the reliable depth range are mapped to 0 (black).
-                        //// Note: Using conditionals in this loop could degrade performance.
-                        //// Consider using a lookup table instead when writing production code.
-                        //// See the KinectDepthViewer class used by the KinectExplorer sample
-                        //// for a lookup table example.
-                        //byte r, g, b;
-                        //if (Math.Abs(depth - topDepth) <= depthDelta)
-                        //{
-                        //    int topIndex = GetTopIndex(i, depthFrame.Width, depthPixels.Length);
-                        //    this.colorPixels[i*4] = this.colorPixels[topIndex];
-                        //}
-                        //if (Math.Abs(depth - rightDepth) <= depthDelta)
-                        //{
-
-                        //}
-                        //if (Math.Abs(depth - bottomDepth) <= depthDelta)
-                        //{
-
-                        //}
-                        //if (Math.Abs(depth - leftDepth) <= depthDelta)
-                        //{
-
-                        //}
-                        
                     }
 
-                    // Write the pixel data into our bitmap
+                    List<GraphicalObject> graphicalObjects = DivideGraphicalObjects(depthArray, depthArray2);
+
                     this.colorBitmap.WritePixels(
                         new Int32Rect(0, 0, this.colorBitmap.PixelWidth, this.colorBitmap.PixelHeight),
                         this.colorPixels,
                         this.colorBitmap.PixelWidth * sizeof(int),
                         0);
+                }
+            }
+        }
+
+        private List<GraphicalObject> DivideGraphicalObjects(short[,] depthArray, short[,] depthArray2)
+        {
+            int width = depthArray.GetLength(0);
+            int height = depthArray.GetLength(1);
+            List<GraphicalObject> graphicalObjects = new List<GraphicalObject>();
+            var currentGraphicalObject = new GraphicalObject();
+            for (int i = 0; i < depthArray.GetLength(0); i++)
+            {
+                for (int j = 0; j < depthArray.GetLength(1); j++)
+                {
+                    if (Math.Abs(depthArray2[i, j] - depthArray2[i + 1, j]) < depthDelta)
+                    {
+                        currentGraphicalObject.GraphicalPoints.Add(new GraphicalPoint()
+                        {
+                            X = i,
+                            Y = j,
+                            Depth = depthArray[i, j]
+                        });
+                    }
+                    else
+                    {
+                        
+                    }
                 }
             }
         }
@@ -267,25 +262,23 @@ namespace CC.Kinect
                 return -1;
             return depthImagePixels[right].Depth;
         }
+    }
 
-        /// <summary>
-        /// Handles the checking or unchecking of the near mode combo box
-        /// </summary>
-        /// <param name="sender">object sending the event</param>
-        /// <param name="e">event arguments</param>
-        private void CheckBoxNearModeChanged(object sender, RoutedEventArgs e)
+    internal class GraphicalObject
+    {
+        public List<GraphicalPoint> GraphicalPoints { get; set; }
+
+        public GraphicalObject()
         {
-            if (this.sensor != null)
-            {
-                // will not function on non-Kinect for Windows devices
-                try
-                {
-                    this.sensor.DepthStream.Range = DepthRange.Default;
-                }
-                catch (InvalidOperationException)
-                {
-                }
-            }
+                GraphicalPoints = new List<GraphicalPoint>();
         }
+    }
+
+    internal struct GraphicalPoint
+    {
+        public int X { get; set; }
+        public int Y { get; set; }
+        public int Depth { get; set; }
+        public byte Color { get; set; }
     }
 }
