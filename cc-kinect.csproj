@@ -8,8 +8,8 @@
     <ProjectGuid>{0C0D535E-0798-480F-8503-5E066358F595}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Microsoft.Samples.Kinect.DepthBasics</RootNamespace>
-    <AssemblyName>DepthBasics-WPF</AssemblyName>
+    <RootNamespace>CC.Kinect</RootNamespace>
+    <AssemblyName>cc-kinect</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <TargetFrameworkProfile>Client</TargetFrameworkProfile>
     <FileAlignment>512</FileAlignment>
