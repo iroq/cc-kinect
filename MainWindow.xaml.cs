@@ -28,12 +28,15 @@
         /// </summary>
         private DepthImagePixel[] depthPixels;
 
+        short[,] diffArray;
+
+        int execCount = 0;
         /// <summary>
         /// Intermediate storage for the depth data converted to color
         /// </summary>
         private byte[] colorPixels;
 
-        private const short depthDelta = 4;
+        private const short depthDelta = 400;
 
         /// <summary>
         /// Initializes a new instance of the MainWindow class.
@@ -124,37 +127,61 @@
             {
                 if (depthFrame != null)
                 {
+                    
+                    if (diffArray == null)
+                        diffArray = new short[depthFrame.Width, depthFrame.Height];
                     // Copy the pixel data from the image to a temporary array
                     depthFrame.CopyDepthImagePixelDataTo(this.depthPixels);
+
                     // Get the min and max reliable depth for the current frame
-                    short[,] depthArray = new short[depthFrame.Width, depthFrame.Height];
+                    int minDepth = depthFrame.MinDepth;
+                    int maxDepth = depthFrame.MaxDepth;
+
+                    
                     for (int i = 0; i < depthFrame.Width; i++)
                     {
                         for (int j = 0; j < depthFrame.Height; j++)
                         {
-                            depthArray[i,j] = depthPixels[i*depthFrame.Height + j].Depth;
+                            diffArray[i,j] = depthPixels[i*depthFrame.Height + j].Depth;
+                            if (diffArray[i, j] < minDepth)
+                                diffArray[i, j] = 0;
+                            else if (diffArray[i, j] > maxDepth)
+                                diffArray[i, j] = short.MaxValue;
                         }
                     }
 
-                    int minDepth = depthFrame.MinDepth;
-                    int maxDepth = depthFrame.MaxDepth;
+                    //Calculate diffs
+                    //for (int i = 0; i < diffArray.GetLength(0)-1; i++)
+                    //    for (int j = 0; j < diffArray.GetLength(1)-1; j++)
+                    //    {
+                    //        int dx = diffArray[i, j] - diffArray[i + 1, j];
+                    //        int dy = diffArray[i,j] - diffArray[i, j+1];
+
+                    //        diffArray[i, j] = (short)(dx + dy);
+                    //    }
 
                     // Convert the depth to RGB
                     int colorPixelIndex = 0;
-                    for (int i = 0; i < depthFrame.Width; ++i)
+                    for (int i = 0; i < depthFrame.Width - 1; i++) 
                     {
-                        for (int j = 0; j < depthFrame.Height; j++)
+                        for (int j = 0; j < depthFrame.Height - 1; j++) 
                         {
-                            short depth = depthArray[i, j];
-                            byte intensity = (byte) (depth >= minDepth && depth <= maxDepth ? depth : 0);
                             // Write out blue byte
-                            this.colorPixels[colorPixelIndex++] = intensity;
+                            this.colorPixels[colorPixelIndex++] = 0;
 
                             // Write out green byte
-                            this.colorPixels[colorPixelIndex++] = intensity;
+                            this.colorPixels[colorPixelIndex++] = 0;
 
-                            // Write out red byte                        
-                            this.colorPixels[colorPixelIndex++] = intensity;
+                            if (Math.Abs(diffArray[i, j]) <= depthDelta)
+                            {
+                                // Write out red byte                        
+                                this.colorPixels[colorPixelIndex++] = 255;
+                            }
+                            else
+                            {
+                                // Write out red byte                        
+                                this.colorPixels[colorPixelIndex++] = 0;
+                            }
 
                             // We're outputting BGR, the last byte in the 32 bits is unused so skip it
                             // If we were outputting BGRA, we would write alpha here.
