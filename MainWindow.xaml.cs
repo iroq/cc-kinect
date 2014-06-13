@@ -1,4 +1,6 @@
-﻿namespace CC.Kinect
+﻿using System.Threading;
+
+namespace CC.Kinect
 {
     using System;
     using System.Globalization;
@@ -132,7 +134,7 @@
                     {
                         for (int j = 0; j < depthFrame.Height; j++)
                         {
-                            depthArray[i,j] = depthPixels[i*depthFrame.Height + j].Depth;
+                            depthArray[i,j] = depthPixels[i * depthFrame.Height + j].Depth;
                         }
                     }
 
