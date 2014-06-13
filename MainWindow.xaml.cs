@@ -1,10 +1,4 @@
-﻿//------------------------------------------------------------------------------
-// <copyright file="MainWindow.xaml.cs" company="Microsoft">
-//     Copyright (c) Microsoft Corporation.  All rights reserved.
-// </copyright>
-//------------------------------------------------------------------------------
-
-namespace CC.Kinect
+﻿namespace CC.Kinect
 {
     using System;
     using System.Globalization;
@@ -178,47 +172,6 @@ namespace CC.Kinect
         }
 
         /// <summary>
-        /// Handles the user clicking on the screenshot button
-        /// </summary>
-        /// <param name="sender">object sending the event</param>
-        /// <param name="e">event arguments</param>
-        private void ButtonScreenshotClick(object sender, RoutedEventArgs e)
-        {
-            if (null == this.sensor)
-            {
-                this.statusBarText.Text = Properties.Resources.ConnectDeviceFirst;
-                return;
-            }
-
-            // create a png bitmap encoder which knows how to save a .png file
-            BitmapEncoder encoder = new PngBitmapEncoder();
-
-            // create frame from the writable bitmap and add to encoder
-            encoder.Frames.Add(BitmapFrame.Create(this.colorBitmap));
-
-            string time = System.DateTime.Now.ToString("hh'-'mm'-'ss", CultureInfo.CurrentUICulture.DateTimeFormat);
-
-            string myPhotos = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
-
-            string path = Path.Combine(myPhotos, "KinectSnapshot-" + time + ".png");
-
-            // write the new file to disk
-            try
-            {
-                using (FileStream fs = new FileStream(path, FileMode.Create))
-                {
-                    encoder.Save(fs);
-                }
-
-                this.statusBarText.Text = string.Format(CultureInfo.InvariantCulture, "{0} {1}", Properties.Resources.ScreenshotWriteSuccess, path);
-            }
-            catch (IOException)
-            {
-                this.statusBarText.Text = string.Format(CultureInfo.InvariantCulture, "{0} {1}", Properties.Resources.ScreenshotWriteFailed, path);
-            }
-        }
-        
-        /// <summary>
         /// Handles the checking or unchecking of the near mode combo box
         /// </summary>
         /// <param name="sender">object sending the event</param>
@@ -230,14 +183,7 @@ namespace CC.Kinect
                 // will not function on non-Kinect for Windows devices
                 try
                 {
-                    if (this.checkBoxNearMode.IsChecked.GetValueOrDefault())
-                    {
-                        this.sensor.DepthStream.Range = DepthRange.Near;
-                    }
-                    else
-                    {
-                        this.sensor.DepthStream.Range = DepthRange.Default;
-                    }
+                    this.sensor.DepthStream.Range = DepthRange.Default;
                 }
                 catch (InvalidOperationException)
                 {
