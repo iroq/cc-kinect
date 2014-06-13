@@ -7,6 +7,7 @@
     using System.Windows.Media;
     using System.Windows.Media.Imaging;
     using Microsoft.Kinect;
+    using System.Diagnostics;
 
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -30,13 +31,13 @@
 
         short[,] diffArray;
 
-        int execCount = 0;
+        int fpsCount = 0;
         /// <summary>
         /// Intermediate storage for the depth data converted to color
         /// </summary>
         private byte[] colorPixels;
 
-        private const short depthDelta = 400;
+        private const short depthDelta = 40;
 
         /// <summary>
         /// Initializes a new instance of the MainWindow class.
@@ -79,7 +80,7 @@
 
                 // This is the bitmap we'll display on-screen
                 this.colorBitmap = new WriteableBitmap(this.sensor.DepthStream.FrameWidth, this.sensor.DepthStream.FrameHeight, 96.0, 96.0, PixelFormats.Bgr32, null);
-
+                
                 // Set the image we display to point to the bitmap where we'll put the image data
                 this.Image.Source = this.colorBitmap;
 
@@ -150,21 +151,23 @@
                         }
                     }
 
+                    int dx;
+                    int dy;
                     //Calculate diffs
-                    //for (int i = 0; i < diffArray.GetLength(0)-1; i++)
-                    //    for (int j = 0; j < diffArray.GetLength(1)-1; j++)
-                    //    {
-                    //        int dx = diffArray[i, j] - diffArray[i + 1, j];
-                    //        int dy = diffArray[i,j] - diffArray[i, j+1];
+                    for (int i = 0; i < depthFrame.Width - 1; i++)
+                        for (int j = 0; j < depthFrame.Height - 1; j++)
+                        {
+                            dx = diffArray[i, j] - diffArray[i + 1, j];
+                            dy = diffArray[i, j] - diffArray[i, j + 1];
 
-                    //        diffArray[i, j] = (short)(dx + dy);
-                    //    }
+                            diffArray[i, j] = (short)(dx + dy);
+                        }
 
                     // Convert the depth to RGB
                     int colorPixelIndex = 0;
-                    for (int i = 0; i < depthFrame.Width - 1; i++) 
+                    for (int i = 0; i < depthFrame.Width; i++) 
                     {
-                        for (int j = 0; j < depthFrame.Height - 1; j++) 
+                        for (int j = 0; j < depthFrame.Height; j++) 
                         {
                             // Write out blue byte
                             this.colorPixels[colorPixelIndex++] = 0;
@@ -227,6 +230,7 @@
                         this.colorPixels,
                         this.colorBitmap.PixelWidth * sizeof(int),
                         0);
+                    
                 }
             }
         }
