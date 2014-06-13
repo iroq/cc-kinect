@@ -1,4 +1,7 @@
-﻿namespace CC.Kinect
+﻿using System.Windows.Controls;
+using System.Windows.Threading;
+
+namespace CC.Kinect
 {
     using System;
     using System.Globalization;
@@ -117,6 +120,9 @@
             }
         }
 
+
+        bool frameProcessing;
+
         /// <summary>
         /// Event handler for Kinect sensor's DepthFrameReady event
         /// </summary>
@@ -124,115 +130,123 @@
         /// <param name="e">event arguments</param>
         private void SensorDepthFrameReady(object sender, DepthImageFrameReadyEventArgs e)
         {
-            using (DepthImageFrame depthFrame = e.OpenDepthImageFrame())
+            if (!frameProcessing)
             {
-                if (depthFrame != null)
+                using (DepthImageFrame depthFrame = e.OpenDepthImageFrame())
                 {
-                    
-                    if (diffArray == null)
-                        diffArray = new short[depthFrame.Width, depthFrame.Height];
-                    // Copy the pixel data from the image to a temporary array
-                    depthFrame.CopyDepthImagePixelDataTo(this.depthPixels);
-
-                    // Get the min and max reliable depth for the current frame
-                    int minDepth = depthFrame.MinDepth;
-                    int maxDepth = depthFrame.MaxDepth;
-
-                    
-                    for (int i = 0; i < depthFrame.Width; i++)
-                    {
-                        for (int j = 0; j < depthFrame.Height; j++)
-                        {
-                            diffArray[i,j] = depthPixels[i*depthFrame.Height + j].Depth;
-                            if (diffArray[i, j] < minDepth)
-                                diffArray[i, j] = 0;
-                            else if (diffArray[i, j] > maxDepth)
-                                diffArray[i, j] = short.MaxValue;
-                        }
-                    }
-
-                    int dx;
-                    int dy;
-                    //Calculate diffs
-                    for (int i = 0; i < depthFrame.Width - 1; i++)
-                        for (int j = 0; j < depthFrame.Height - 1; j++)
-                        {
-                            dx = diffArray[i, j] - diffArray[i + 1, j];
-                            dy = diffArray[i, j] - diffArray[i, j + 1];
-
-                            diffArray[i, j] = (short)(dx + dy);
-                        }
-
-                    // Convert the depth to RGB
-                    int colorPixelIndex = 0;
-                    for (int i = 0; i < depthFrame.Width; i++) 
-                    {
-                        for (int j = 0; j < depthFrame.Height; j++) 
-                        {
-                            // Write out blue byte
-                            this.colorPixels[colorPixelIndex++] = 0;
-
-                            // Write out green byte
-                            this.colorPixels[colorPixelIndex++] = 0;
-
-                            if (Math.Abs(diffArray[i, j]) <= depthDelta)
-                            {
-                                // Write out red byte                        
-                                this.colorPixels[colorPixelIndex++] = 255;
-                            }
-                            else
-                            {
-                                // Write out red byte                        
-                                this.colorPixels[colorPixelIndex++] = 0;
-                            }
-
-                            // We're outputting BGR, the last byte in the 32 bits is unused so skip it
-                            // If we were outputting BGRA, we would write alpha here.
-                            ++colorPixelIndex;
-                        }
-                        //// Get the depth for this pixel
-                        //short bottomDepth = GetDepthFromBottomPixel(depthPixels, i, depthFrame.Width);
-                        //short topDepth  = GetDepthFromTopPixel(depthPixels, i, depthFrame.Width);
-                        //short leftDepth = GetDepthFromLeftPixel(depthPixels, i, depthFrame.Width);
-                        //short rightDepth = GetDepthFromRightPixel(depthPixels, i, depthFrame.Width);
-                        //// To convert to a byte, we're discarding the most-significant
-                        //// rather than least-significant bits.
-                        //// We're preserving detail, although the intensity will "wrap."
-                        //// Values outside the reliable depth range are mapped to 0 (black).
-                        //// Note: Using conditionals in this loop could degrade performance.
-                        //// Consider using a lookup table instead when writing production code.
-                        //// See the KinectDepthViewer class used by the KinectExplorer sample
-                        //// for a lookup table example.
-                        //byte r, g, b;
-                        //if (Math.Abs(depth - topDepth) <= depthDelta)
-                        //{
-                        //    int topIndex = GetTopIndex(i, depthFrame.Width, depthPixels.Length);
-                        //    this.colorPixels[i*4] = this.colorPixels[topIndex];
-                        //}
-                        //if (Math.Abs(depth - rightDepth) <= depthDelta)
-                        //{
-
-                        //}
-                        //if (Math.Abs(depth - bottomDepth) <= depthDelta)
-                        //{
-
-                        //}
-                        //if (Math.Abs(depth - leftDepth) <= depthDelta)
-                        //{
-
-                        //}
-                        
-                    }
-
-                    // Write the pixel data into our bitmap
-                    this.colorBitmap.WritePixels(
-                        new Int32Rect(0, 0, this.colorBitmap.PixelWidth, this.colorBitmap.PixelHeight),
-                        this.colorPixels,
-                        this.colorBitmap.PixelWidth * sizeof(int),
-                        0);
-                    
+					if (depthFrame != null)
+					{
+						if (diffArray == null)
+							diffArray = new short[depthFrame.Width, depthFrame.Height];
+						depthFrame.CopyDepthImagePixelDataTo(this.depthPixels);
+					    frameProcessing = true;
+						this.Dispatcher.BeginInvoke(DispatcherPriority.Background,
+							(Action) (() => this.ProcessDepthData()));
+					}
                 }
             }
+        }
+
+        private int minDepth = 800;
+        private int maxDepth = 4000;
+        private int width = 640;
+        private int height = 480;
+
+        private void ProcessDepthData()
+        {
+            for (int i = 0; i < width; i++)
+            {
+                for (int j = 0; j < height; j++)
+                {
+                    diffArray[i, j] = depthPixels[i * height + j].Depth;
+                    if (diffArray[i, j] < minDepth)
+                        diffArray[i, j] = 0;
+                    else if (diffArray[i, j] > maxDepth)
+                        diffArray[i, j] = short.MaxValue;
+                }
+            }
+
+            int dx;
+            int dy;
+            //Calculate diffs
+            for (int i = 0; i < width - 1; i++)
+                for (int j = 0; j < height - 1; j++)
+                {
+                    dx = diffArray[i, j] - diffArray[i + 1, j];
+                    dy = diffArray[i, j] - diffArray[i, j + 1];
+
+                    diffArray[i, j] = (short)(dx);
+                }
+
+            // Convert the depth to RGB
+            int colorPixelIndex = 0;
+            for (int i = 0; i < width; i++)
+            {
+                for (int j = 0; j < height; j++)
+                {
+                    // Write out blue byte
+                    this.colorPixels[colorPixelIndex++] = 0;
+
+                    // Write out green byte
+                    this.colorPixels[colorPixelIndex++] = 0;
+
+                    if (Math.Abs(diffArray[i, j]) <= 80)
+                    {
+                        // Write out red byte                        
+                        this.colorPixels[colorPixelIndex++] = 255;
+                    }
+                    else
+                    {
+                        // Write out red byte                        
+                        this.colorPixels[colorPixelIndex++] = 0;
+                    }
+
+                    // We're outputting BGR, the last byte in the 32 bits is unused so skip it
+                    // If we were outputting BGRA, we would write alpha here.
+                    ++colorPixelIndex;
+                }
+                //// Get the depth for this pixel
+                //short bottomDepth = GetDepthFromBottomPixel(depthPixels, i, depthFrame.Width);
+                //short topDepth  = GetDepthFromTopPixel(depthPixels, i, depthFrame.Width);
+                //short leftDepth = GetDepthFromLeftPixel(depthPixels, i, depthFrame.Width);
+                //short rightDepth = GetDepthFromRightPixel(depthPixels, i, depthFrame.Width);
+                //// To convert to a byte, we're discarding the most-significant
+                //// rather than least-significant bits.
+                //// We're preserving detail, although the intensity will "wrap."
+                //// Values outside the reliable depth range are mapped to 0 (black).
+                //// Note: Using conditionals in this loop could degrade performance.
+                //// Consider using a lookup table instead when writing production code.
+                //// See the KinectDepthViewer class used by the KinectExplorer sample
+                //// for a lookup table example.
+                //byte r, g, b;
+                //if (Math.Abs(depth - topDepth) <= depthDelta)
+                //{
+                //    int topIndex = GetTopIndex(i, depthFrame.Width, depthPixels.Length);
+                //    this.colorPixels[i*4] = this.colorPixels[topIndex];
+                //}
+                //if (Math.Abs(depth - rightDepth) <= depthDelta)
+                //{
+
+                //}
+                //if (Math.Abs(depth - bottomDepth) <= depthDelta)
+                //{
+
+                //}
+                //if (Math.Abs(depth - leftDepth) <= depthDelta)
+                //{
+
+                //}
+
+            }
+
+            // Write the pixel data into our bitmap
+            this.colorBitmap.WritePixels(
+                new Int32Rect(0, 0, this.colorBitmap.PixelWidth, this.colorBitmap.PixelHeight),
+                this.colorPixels,
+                this.colorBitmap.PixelWidth * sizeof(int),
+                0);
+
+            frameProcessing = false;
         }
 
         private short GetDepthFromBottomPixel(DepthImagePixel[] depthImagePixels, int i, int width)
