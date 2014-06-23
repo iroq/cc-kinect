@@ -223,7 +223,8 @@ namespace CC.Kinect
         /// </summary>
         private void updateDataLabel(int scrX, int scrY)
         {
-            if (scrX >= 0 && scrX < Image.Width &&
+            if (diffArray!=null &&
+                scrX >= 0 && scrX < Image.Width &&
                 scrY >= 0 && scrY < Image.Height)
             {
                 int x = (int)((scrX / (double)Image.Width) * diffArray.GetLength(0));
