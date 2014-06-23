@@ -1,5 +1,6 @@
 ﻿using System.Windows.Controls;
 using System.Windows.Threading;
+using System.Windows.Input;
 
 namespace CC.Kinect
 {
@@ -33,8 +34,6 @@ namespace CC.Kinect
         private DepthImagePixel[] depthPixels;
 
         short[,] diffArray;
-
-        int fpsCount = 0;
         /// <summary>
         /// Intermediate storage for the depth data converted to color
         /// </summary>
@@ -141,24 +140,22 @@ namespace CC.Kinect
 						depthFrame.CopyDepthImagePixelDataTo(this.depthPixels);
 					    frameProcessing = true;
 						this.Dispatcher.BeginInvoke(DispatcherPriority.Background,
-							(Action) (() => this.ProcessDepthData()));
+							(Action) (() => this.ProcessDepthData(depthFrame)));
 					}
                 }
             }
         }
 
-        private int minDepth = 800;
-        private int maxDepth = 4000;
-        private int width = 640;
-        private int height = 480;
-
-        private void ProcessDepthData()
+        private void ProcessDepthData(DepthImageFrame frame)
         {
-            for (int i = 0; i < width; i++)
+            var minDepth = frame.MinDepth;
+            var maxDepth = frame.MaxDepth;
+
+            for (int i = 0; i < frame.Width; i++)
             {
-                for (int j = 0; j < height; j++)
+                for (int j = 0; j < frame.Height; j++)
                 {
-                    diffArray[i, j] = depthPixels[i * height + j].Depth;
+                    diffArray[i, j] = depthPixels[i * frame.Height + j].Depth;
                     if (diffArray[i, j] < minDepth)
                         diffArray[i, j] = 0;
                     else if (diffArray[i, j] > maxDepth)
@@ -168,21 +165,22 @@ namespace CC.Kinect
 
             int dx;
             int dy;
-            //Calculate diffs
-            for (int i = 0; i < width - 1; i++)
-                for (int j = 0; j < height - 1; j++)
-                {
-                    dx = diffArray[i, j] - diffArray[i + 1, j];
-                    dy = diffArray[i, j] - diffArray[i, j + 1];
 
-                    diffArray[i, j] = (short)(dx);
-                }
+            //Calculate diffs
+            //for (int i = 0; i < frame.Width - 1; i++)
+            //    for (int j = 0; j < frame.Height - 1; j++)
+            //    {
+            //        dx = diffArray[i, j] - diffArray[i + 1, j];
+            //        dy = diffArray[i, j] - diffArray[i, j + 1];
+
+            //        diffArray[i, j] = (short)(dx);
+            //    }
 
             // Convert the depth to RGB
             int colorPixelIndex = 0;
-            for (int i = 0; i < width; i++)
+            for (int i = 0; i < frame.Width; i++)
             {
-                for (int j = 0; j < height; j++)
+                for (int j = 0; j < frame.Height; j++)
                 {
                     // Write out blue byte
                     this.colorPixels[colorPixelIndex++] = 0;
@@ -190,7 +188,7 @@ namespace CC.Kinect
                     // Write out green byte
                     this.colorPixels[colorPixelIndex++] = 0;
 
-                    if (Math.Abs(diffArray[i, j]) <= 80)
+                    if (Math.Abs(diffArray[i, j]) >= 1000 && Math.Abs(diffArray[i,j])<=2000)
                     {
                         // Write out red byte                        
                         this.colorPixels[colorPixelIndex++] = 255;
@@ -205,37 +203,6 @@ namespace CC.Kinect
                     // If we were outputting BGRA, we would write alpha here.
                     ++colorPixelIndex;
                 }
-                //// Get the depth for this pixel
-                //short bottomDepth = GetDepthFromBottomPixel(depthPixels, i, depthFrame.Width);
-                //short topDepth  = GetDepthFromTopPixel(depthPixels, i, depthFrame.Width);
-                //short leftDepth = GetDepthFromLeftPixel(depthPixels, i, depthFrame.Width);
-                //short rightDepth = GetDepthFromRightPixel(depthPixels, i, depthFrame.Width);
-                //// To convert to a byte, we're discarding the most-significant
-                //// rather than least-significant bits.
-                //// We're preserving detail, although the intensity will "wrap."
-                //// Values outside the reliable depth range are mapped to 0 (black).
-                //// Note: Using conditionals in this loop could degrade performance.
-                //// Consider using a lookup table instead when writing production code.
-                //// See the KinectDepthViewer class used by the KinectExplorer sample
-                //// for a lookup table example.
-                //byte r, g, b;
-                //if (Math.Abs(depth - topDepth) <= depthDelta)
-                //{
-                //    int topIndex = GetTopIndex(i, depthFrame.Width, depthPixels.Length);
-                //    this.colorPixels[i*4] = this.colorPixels[topIndex];
-                //}
-                //if (Math.Abs(depth - rightDepth) <= depthDelta)
-                //{
-
-                //}
-                //if (Math.Abs(depth - bottomDepth) <= depthDelta)
-                //{
-
-                //}
-                //if (Math.Abs(depth - leftDepth) <= depthDelta)
-                //{
-
-                //}
 
             }
 
@@ -245,90 +212,30 @@ namespace CC.Kinect
                 this.colorPixels,
                 this.colorBitmap.PixelWidth * sizeof(int),
                 0);
-
+            Point pos = Mouse.GetPosition(Image);
+            updateDataLabel((int)pos.X, (int)pos.Y);
             frameProcessing = false;
         }
 
-        private short GetDepthFromBottomPixel(DepthImagePixel[] depthImagePixels, int i, int width)
-        {
-            int below = GetBottomIndex(i, width, depthImagePixels.Length);
-            return depthImagePixels[below].Depth;
-        }
-
-        private int GetBottomIndex(int i, int width, int length)
-        {
-            int row = i / width;
-            int column = i % width;
-            int below = (row + 1) * width + column;
-            if (below < 0 || below >= length)
-                return -1;
-            return below;
-        }
-
-        private short GetDepthFromTopPixel(DepthImagePixel[] depthImagePixels, int i, int width)
-        {
-            int above = GetTopIndex(i, width, depthImagePixels.Length);
-            return depthImagePixels[above].Depth;
-        }
-
-        private int GetTopIndex(int i, int width, int length)
-        {
-            int row = i / width;
-            int column = i % width;
-            int above = (row - 1) * width + column;
-            if (above < 0 || above >= length)
-                return -1;
-            return above;
-        }
-
-        private short GetDepthFromLeftPixel(DepthImagePixel[] depthImagePixels, int i, int width)
-        {
-            int row = i / width;
-            int column = i % width;
-            int left = row * width + column - 1;
-            if (left < 0 || left >= depthImagePixels.Length)
-                return -1;
-            return depthImagePixels[left].Depth;
-        }
-
-        private int GetLeftIndex(int i, int width, int length)
-        {
-            int row = i / width;
-            int column = i % width;
-            int above = (row - 1) * width + column;
-            if (above < 0 || above >= length)
-                return -1;
-            return above;
-        }
-
-        private short GetDepthFromRightPixel(DepthImagePixel[] depthImagePixels, int i, int width)
-        {
-            int row = i / width;
-            int column = i % width;
-            int right = row * width + column + 1;
-            if (right < 0 || right >= depthImagePixels.Length)
-                return -1;
-            return depthImagePixels[right].Depth;
-        }
-
         /// <summary>
-        /// Handles the checking or unchecking of the near mode combo box
+        /// Retrieves appropriate value from the frame and displays it in the 
+        /// DataLabel. Arguments are position relative to the image control.
         /// </summary>
-        /// <param name="sender">object sending the event</param>
-        /// <param name="e">event arguments</param>
-        private void CheckBoxNearModeChanged(object sender, RoutedEventArgs e)
+        private void updateDataLabel(int scrX, int scrY)
         {
-            if (this.sensor != null)
+            if (scrX >= 0 && scrX < Image.Width &&
+                scrY >= 0 && scrY < Image.Height)
             {
-                // will not function on non-Kinect for Windows devices
-                try
-                {
-                    this.sensor.DepthStream.Range = DepthRange.Default;
-                }
-                catch (InvalidOperationException)
-                {
-                }
+                int x = (int)((scrX / (double)Image.Width) * diffArray.GetLength(0));
+                int y = (int)((scrY / (double)Image.Height) * diffArray.GetLength(1));
+                dataLabel.Content = "arr["+x+","+y+"]= "+diffArray[x, y].ToString();
             }
+        }
+
+        private void Image_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            Point pos=e.GetPosition(Image);
+            updateDataLabel((int)pos.X, (int)pos.Y);
         }
     }
 }
