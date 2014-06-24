@@ -39,7 +39,7 @@ namespace CC.Kinect
         /// </summary>
         private byte[] colorPixels;
 
-        private const short depthDelta = 40;
+        private const short depthDelta = 80;
 
         /// <summary>
         /// Initializes a new instance of the MainWindow class.
@@ -156,10 +156,10 @@ namespace CC.Kinect
                 for (int j = 0; j < frame.Height; j++)
                 {
                     diffArray[i, j] = depthPixels[i * frame.Height + j].Depth;
-                    if (diffArray[i, j] < minDepth)
-                        diffArray[i, j] = 0;
-                    else if (diffArray[i, j] > maxDepth)
-                        diffArray[i, j] = short.MaxValue;
+                    //if (diffArray[i, j] < minDepth)
+                    //    diffArray[i, j] = 0;
+                    //else if (diffArray[i, j] > maxDepth)
+                    //    diffArray[i, j] = short.MaxValue-1;
                 }
             }
 
@@ -167,15 +167,16 @@ namespace CC.Kinect
             int dy;
 
             //Calculate diffs
-            //for (int i = 0; i < frame.Width - 1; i++)
-            //    for (int j = 0; j < frame.Height - 1; j++)
-            //    {
-            //        dx = diffArray[i, j] - diffArray[i + 1, j];
-            //        dy = diffArray[i, j] - diffArray[i, j + 1];
+            for (int i = 0; i < frame.Width - 1; i++)
+            {
+                for (int j = 0; j < frame.Height - 1; j++)
+                {
+                    dx = diffArray[i, j] - diffArray[i + 1, j];
+                    dy = diffArray[i, j] - diffArray[i, j + 1];
 
-            //        diffArray[i, j] = (short)(dx);
-            //    }
-
+                    diffArray[i, j] = (short)(dy);
+                }
+            }
             // Convert the depth to RGB
             int colorPixelIndex = 0;
             for (int i = 0; i < frame.Width; i++)
@@ -188,7 +189,7 @@ namespace CC.Kinect
                     // Write out green byte
                     this.colorPixels[colorPixelIndex++] = 0;
 
-                    if (Math.Abs(diffArray[i, j]) >= 1000 && Math.Abs(diffArray[i,j])<=2000)
+                    if (Math.Abs(diffArray[i, j]) >= depthDelta)
                     {
                         // Write out red byte                        
                         this.colorPixels[colorPixelIndex++] = 255;
