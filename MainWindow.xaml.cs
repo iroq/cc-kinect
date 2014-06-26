@@ -44,6 +44,7 @@ namespace CC.Kinect
         private byte[] colorPixels;
 
         private const short depthDelta = 20;
+        private Color[,] colorArray;
 
         /// <summary>
         /// Initializes a new instance of the MainWindow class.
@@ -80,13 +81,12 @@ namespace CC.Kinect
                 
                 // Allocate space to put the depth pixels we'll receive
                 this.depthPixels = new DepthImagePixel[this.sensor.DepthStream.FramePixelDataLength];
-
                 // Allocate space to put the color pixels we'll create
                 this.colorPixels = new byte[this.sensor.DepthStream.FramePixelDataLength * sizeof(int)];
 
                 // This is the bitmap we'll display on-screen
                 this.colorBitmap = new WriteableBitmap(this.sensor.DepthStream.FrameWidth, this.sensor.DepthStream.FrameHeight, 96.0, 96.0, PixelFormats.Bgr32, null);
-                
+
                 // Set the image we display to point to the bitmap where we'll put the image data
                 this.Image.Source = this.colorBitmap;
 
@@ -172,6 +172,7 @@ namespace CC.Kinect
                 posY = 0;
             if (posY >= frame.Height)
                 posY = frame.Height - 1;
+            colorArray = new Color[frame.Width, frame.Height];
             
             updateDataLabel(posX, posY);
 
@@ -183,6 +184,7 @@ namespace CC.Kinect
                 for (int j = 0; j < frame.Height; j++)
                 {
                     diffArray[i, j] = depthPixels[i * frame.Height + j].Depth;
+                    colorArray[i,j] = Color.FromArgb(0, 0, 0, 0);
                 }
             }
 
@@ -280,10 +282,7 @@ namespace CC.Kinect
             //    }
             //}
 
-            colorPixelIndex = 4 * (posX * frame.Height + posY);
-            colorPixels[colorPixelIndex] = 0;
-            colorPixels[colorPixelIndex + 1] = 0;
-            colorPixels[colorPixelIndex + 2] = 255;
+            colorArray[posX, posY] = Color.FromArgb(0, 255, 0, 0);
 
             // Write the pixel data into our bitmap
             this.colorBitmap.WritePixels(
