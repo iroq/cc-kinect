@@ -357,6 +357,25 @@ namespace CC.Kinect
                 }
         }
 
+        private void BytesToColors(byte[] bytes, Color[,] colors)
+        {
+            if (colors.Length * 4 != bytes.Length)
+                throw new ArgumentException("Non-matching array sizes!");
+
+            int byteCount = 0;
+            byte r, g, b;
+            for(int y=0; y<colors.GetLength(1);y++)
+                for (int x = 0; x < colors.GetLength(0); x++)
+                {
+                    b = bytes[byteCount++];
+                    g = bytes[byteCount++];
+                    r = bytes[byteCount++];
+                    byteCount++;
+
+                    colors[x, y] = Color.FromArgb(0, r, g, b);
+                }
+        }
+
         private void updateDataLabel(int scrX, int scrY)
         {
             if (diffArray!=null &&
