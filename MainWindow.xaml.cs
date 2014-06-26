@@ -43,8 +43,10 @@ namespace CC.Kinect
         /// </summary>
         private byte[] colorPixels;
 
-        private const short depthDelta = 10;
+        private short depthDelta = 10;
         private Color[,] colorArray;
+        private object depthLock = new object();
+        private object processingLock = new object();
 
         /// <summary>
         /// Initializes a new instance of the MainWindow class.
@@ -52,7 +54,6 @@ namespace CC.Kinect
         public MainWindow()
         {
             InitializeComponent();
-            processingLock = new object();
         }
         /// <summary>
         /// Execute startup tasks
@@ -77,7 +78,7 @@ namespace CC.Kinect
             if (null != this.sensor)
             {
                 // Turn on the depth stream to receive depth frames
-                this.sensor.DepthStream.Enable(DepthImageFormat.Resolution320x240Fps30);
+                this.sensor.DepthStream.Enable(DepthImageFormat.Resolution640x480Fps30);
                 
                 // Allocate space to put the depth pixels we'll receive
                 this.depthPixels = new DepthImagePixel[this.sensor.DepthStream.FramePixelDataLength];
@@ -123,9 +124,7 @@ namespace CC.Kinect
             }
         }
 
-
         bool frameProcessing;
-        private object processingLock;
 
         /// <summary>
         /// Event handler for Kinect sensor's DepthFrameReady event
@@ -161,6 +160,12 @@ namespace CC.Kinect
 
         private void ProcessDepthData(DepthImageFrame frame)
         {
+            int kinectDepth = 10;
+            lock (depthLock)
+            {
+                kinectDepth = depthDelta;
+            }
+
             System.Windows.Point pos = Mouse.GetPosition(Image);
             int posX = (int) pos.X;
             int posY = (int) pos.Y;
@@ -188,24 +193,10 @@ namespace CC.Kinect
             int dx;
             int dy;
 
-            //Calculate diffs
-            //for (int i = 0; i < frame.Width - 1; i++)
-            //{
-            //    for (int j = 0; j < frame.Height - 1; j++)
-            //    {
-            //        dx = diffArray[i, j] - diffArray[i + 1, j];
-            //        dy = diffArray[i, j] - diffArray[i, j + 1];
-
-            //        diffArray[i, j] = (short)(dy);
-            //    }
-            //}
-
-            //Convert the depth to RGB
             for (int i = 0; i < frame.Width; i++)
             {
                 for (int j = 0; j < frame.Height; j++)
                 {
-                    // Write out blue byte
                     if (diffArray[i, j] == 0)
                     {
                         colorArray[i, j] = Color.FromArgb(0, 0, 255, 0);
@@ -215,9 +206,6 @@ namespace CC.Kinect
                         byte color = (byte) diffArray[i, j];
                         colorArray[i, j] = Color.FromArgb(0, color, color, color);
                     }
-
-                    // We're outputting BGR, the last byte in the 32 bits is unused so skip it
-                    // If we were outputting BGRA, we would write alpha here.
                 }
             }
 
@@ -234,7 +222,7 @@ namespace CC.Kinect
                 {
                     if (!visited[pointToAdd.X, pointToAdd.Y])
                     {
-                        if (Math.Abs(diffArray[pointToAdd.X, pointToAdd.Y] - diffArray[point.X, point.Y]) < depthDelta)
+                        if (Math.Abs(diffArray[pointToAdd.X, pointToAdd.Y] - diffArray[point.X, point.Y]) < kinectDepth)
                         {
                             colorArray[pointToAdd.X, pointToAdd.Y] = Colors.Red;
                             q.Enqueue(pointToAdd);
@@ -249,9 +237,10 @@ namespace CC.Kinect
                 }
             }
 
+            //Myszka
             colorArray[posX, posY] = Colors.Red;
             ColorsToBytes(colorArray, colorPixels);
-            // Write the pixel data into our bitmap
+
             this.colorBitmap.WritePixels(
                 new Int32Rect(0, 0, this.colorBitmap.PixelWidth, this.colorBitmap.PixelHeight),
                 this.colorPixels,
@@ -344,6 +333,16 @@ namespace CC.Kinect
         {
             System.Windows.Point pos=e.GetPosition(Image);
             updateDataLabel((int)pos.X, (int)pos.Y);
+        }
+
+        private void DepthSlider_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            lock (depthLock)
+            {
+                depthDelta = (short)depthSlider.Value;
+            }
+            if(sliderValueLabel != null)
+                sliderValueLabel.Content = (short)depthSlider.Value;
         }
     }
 
