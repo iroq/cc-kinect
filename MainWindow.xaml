@@ -78,7 +78,11 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <DockPanel Grid.Row="0" Margin="0 0 0 20">
-            <Label Name="dataLabel"></Label>
+            <Label Name="dataLabel" Width="70"></Label>
+            <Slider Width="300" Minimum="10" Maximum="100" Name="depthSlider" ValueChanged="DepthSlider_OnValueChanged"></Slider>
+            <Label Name="sliderValueLabel" Width="100" Content="10"></Label>
+            <Label Width="100" Content="Obraz z kamery"/>
+            <CheckBox Width="20" Height="20" Name="CameraCheckBox" IsChecked="True" Checked="CameraCheckBox_OnChecked" Unchecked="CameraCheckBox_OnUnchecked"/>
         </DockPanel>
         <Viewbox Grid.Row="1" Stretch="Uniform" HorizontalAlignment="Center">
             <Image Name="Image" Width="640" Height="480" MouseMove="Image_MouseMove"/>
