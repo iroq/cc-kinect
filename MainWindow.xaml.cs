@@ -189,7 +189,7 @@ namespace CC.Kinect
 
         private void ProcessDepthData(DepthImageFrame frame)
         {
-            int kinectDepth = 10;
+            int kinectDepth;
             lock (depthLock)
             {
                 kinectDepth = depthDelta;
@@ -208,6 +208,11 @@ namespace CC.Kinect
                 posY = frame.Height - 1;
             colorArray = new Color[frame.Width, frame.Height];
             
+            lock (cameraPixels)
+            {
+                BytesToColors(colorArray, cameraPixels);
+            }
+
             updateDataLabel(posX, posY);
 
             for (int i = 0; i < frame.Width; i++)
@@ -219,9 +224,6 @@ namespace CC.Kinect
                 }
             }
 
-            int dx;
-            int dy;
-
             for (int i = 0; i < frame.Width; i++)
             {
                 for (int j = 0; j < frame.Height; j++)
@@ -232,8 +234,8 @@ namespace CC.Kinect
                     }
                     else
                     {
-                        byte color = (byte) diffArray[i, j];
-                        colorArray[i, j] = Color.FromArgb(0, color, color, color);
+                        //byte color = (byte) diffArray[i, j];
+                        //colorArray[i, j] = Color.FromArgb(0, color, color, color);
                     }
                 }
             }
@@ -253,7 +255,12 @@ namespace CC.Kinect
                     {
                         if (Math.Abs(diffArray[pointToAdd.X, pointToAdd.Y] - diffArray[point.X, point.Y]) < kinectDepth)
                         {
-                            colorArray[pointToAdd.X, pointToAdd.Y] = Colors.Red;
+                            var color = colorArray[pointToAdd.X, pointToAdd.Y];
+                            colorArray[pointToAdd.X, pointToAdd.Y] = 
+                                Color.FromArgb(0, 
+                                color.R, 
+                                (byte)(color.G - 10 < 0 ? 0 : color.G - 50),
+                                (byte)(color.B - 10 < 0 ? 0 : color.B - 50));
                             q.Enqueue(pointToAdd);
                         }
                         else
@@ -343,6 +350,24 @@ namespace CC.Kinect
                     bytes[byteCount++] = g;
                     bytes[byteCount++] = r;
                     byteCount++;
+                }
+        }
+
+        private void BytesToColors(Color[,] colors, byte[] bytes)
+        {
+            if (colors.Length * 4 != bytes.Length)
+                throw new ArgumentException("Non-matching array sizes!");
+
+            int byteCount = 0;
+            byte r, g, b;
+            for (int y = 0; y < colors.GetLength(1); y++)
+                for (int x = 0; x < colors.GetLength(0); x++)
+                {
+                    g = bytes[byteCount++];
+                    b = bytes[byteCount++];
+                    r = bytes[byteCount++];
+                    byteCount++;
+                    colors[x, y] = Color.FromArgb(0, r, g, b);
                 }
         }
 
