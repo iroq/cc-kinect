@@ -43,7 +43,7 @@ namespace CC.Kinect
         /// </summary>
         private byte[] colorPixels;
 
-        private const short depthDelta = 80;
+        private const short depthDelta = 20;
 
         /// <summary>
         /// Initializes a new instance of the MainWindow class.
@@ -248,8 +248,7 @@ namespace CC.Kinect
                             colorPixels[colorPixelIndex + 1] = 0;
                             colorPixels[colorPixelIndex + 2] = 0;
                             q.Enqueue(pointToAdd);
-                            visited[pointToAdd.X, pointToAdd.Y] = true;
-                            visitedList.Add(pointToAdd);
+                            
                         }
                         else
                         {
@@ -258,6 +257,8 @@ namespace CC.Kinect
                             colorPixels[colorPixelIndex + 1] = 0;
                             colorPixels[colorPixelIndex + 2] = 255;
                         }
+                        visited[pointToAdd.X, pointToAdd.Y] = true;
+                        visitedList.Add(pointToAdd);
                     }
                 }
             }
