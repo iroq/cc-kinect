@@ -77,9 +77,11 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <DockPanel Grid.Row="0" Margin="0 0 0 20"/>
+        <DockPanel Grid.Row="0" Margin="0 0 0 20">
+            <Label Name="dataLabel"></Label>
+        </DockPanel>
         <Viewbox Grid.Row="1" Stretch="Uniform" HorizontalAlignment="Center">
-            <Image Name="Image" Width="640" Height="480"/>
+            <Image Name="Image" Width="640" Height="480" MouseMove="Image_MouseMove"/>
         </Viewbox>
         <StatusBar Grid.Row="3" HorizontalAlignment="Stretch" Name="statusBar" VerticalAlignment="Bottom" Background="White" Foreground="{StaticResource MediumGreyBrush}">
             <StatusBarItem Padding="0 0 0 10"/>
