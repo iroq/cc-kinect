@@ -339,6 +339,29 @@ namespace CC.Kinect
         /// Retrieves appropriate value from the frame and displays it in the 
         /// DataLabel. Arguments are position relative to the image control.
         /// </summary>
+        /// 
+
+        private void ColorsToBytes(Color[,] colors, byte[] bytes)
+        {
+            if (colors.Length*4 != bytes.Length)
+                throw new ArgumentException("Non-matching array sizes!");
+
+            int byteCount=0;
+            byte r, g, b;
+            for (int y = 0; y < colors.GetLength(1); y++)
+                for(int x=0;x<colors.GetLength(0);x++)           
+                {
+                    r=colors[x,y].R;
+                    g=colors[x,y].G;
+                    b=colors[x,y].B;
+
+                    bytes[byteCount++] = b;
+                    bytes[byteCount++] = g;
+                    bytes[byteCount++] = r;
+                    byteCount++;
+                }
+        }
+
         private void updateDataLabel(int scrX, int scrY)
         {
             if (diffArray!=null &&
