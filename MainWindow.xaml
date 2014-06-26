@@ -81,7 +81,7 @@
             <Label Name="dataLabel"></Label>
         </DockPanel>
         <Viewbox Grid.Row="1" Stretch="Uniform" HorizontalAlignment="Center">
-            <Image Name="Image" Width="80" Height="60" MouseMove="Image_MouseMove"/>
+            <Image Name="Image" Width="320" Height="240" MouseMove="Image_MouseMove"/>
         </Viewbox>
         <StatusBar Grid.Row="3" HorizontalAlignment="Stretch" Name="statusBar" VerticalAlignment="Bottom" Background="White" Foreground="{StaticResource MediumGreyBrush}">
             <StatusBarItem Padding="0 0 0 10"/>
