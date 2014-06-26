@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Threading;
@@ -42,7 +43,7 @@ namespace CC.Kinect
         /// </summary>
         private byte[] colorPixels;
 
-        private const short depthDelta = 200;
+        private const short depthDelta = 80;
 
         /// <summary>
         /// Initializes a new instance of the MainWindow class.
@@ -50,6 +51,7 @@ namespace CC.Kinect
         public MainWindow()
         {
             InitializeComponent();
+            processingLock = new object();
         }
         /// <summary>
         /// Execute startup tasks
@@ -123,6 +125,7 @@ namespace CC.Kinect
 
 
         bool frameProcessing;
+        private object processingLock;
 
         /// <summary>
         /// Event handler for Kinect sensor's DepthFrameReady event
@@ -131,7 +134,12 @@ namespace CC.Kinect
         /// <param name="e">event arguments</param>
         private void SensorDepthFrameReady(object sender, DepthImageFrameReadyEventArgs e)
         {
-            if (!frameProcessing)
+            bool frameReady = false;
+            lock (processingLock)
+            {
+                frameReady = !frameProcessing;
+            }
+            if (frameReady)
             {
                 using (DepthImageFrame depthFrame = e.OpenDepthImageFrame())
                 {
@@ -140,7 +148,10 @@ namespace CC.Kinect
 						if (diffArray == null)
 							diffArray = new short[depthFrame.Width, depthFrame.Height];
 						depthFrame.CopyDepthImagePixelDataTo(this.depthPixels);
-					    frameProcessing = true;
+					    lock (processingLock)
+					    {
+                            frameProcessing = true;
+					    }
 						this.Dispatcher.BeginInvoke(DispatcherPriority.Background,
 							(Action) (() => this.ProcessDepthData(depthFrame)));
 					}
@@ -183,10 +194,20 @@ namespace CC.Kinect
                 for (int j = 0; j < frame.Height; j++)
                 {
                     // Write out blue byte
-                    this.colorPixels[colorPixelIndex++] = (byte) diffArray[i, j];
+                    colorPixelIndex = 4 * (i * frame.Height + j);
+                    if (diffArray[i, j] == 0)
+                    {
+                        this.colorPixels[colorPixelIndex] = 0;
+                        this.colorPixels[colorPixelIndex+1] = 255;
+                        this.colorPixels[colorPixelIndex+2] = 0;
+                    }
+                    else
+                    {
+                        
+                    this.colorPixels[colorPixelIndex] = (byte) diffArray[i, j];
 
                     // Write out green byte
-                    this.colorPixels[colorPixelIndex++] = (byte)(diffArray[i, j]);
+                    this.colorPixels[colorPixelIndex+1] = (byte)(diffArray[i, j]);
 
                     //if (Math.Abs(diffArray[i, j]) >= depthDelta)
                     //{
@@ -198,16 +219,19 @@ namespace CC.Kinect
                     //    // Write out red byte                        
                     //    this.colorPixels[colorPixelIndex++] = 0;
                     //}
-                    this.colorPixels[colorPixelIndex++] = (byte)(diffArray[i, j]);
+                    this.colorPixels[colorPixelIndex+2] = (byte)(diffArray[i, j]);
+                    }
+
                     // We're outputting BGR, the last byte in the 32 bits is unused so skip it
                     // If we were outputting BGRA, we would write alpha here.
-                    ++colorPixelIndex;
                 }
             }
 
             bool[,] visited = new bool[frame.Width, frame.Height];
+            List<Point> visitedList = new List<Point>();
             var q = new Queue<Point>();
             q.Enqueue(new Point(frame.Width/2, frame.Height/2));
+            //PrintPixelDepth(diffArray);
             while (q.Count > 0)
             {
                 var point = q.Dequeue();
@@ -219,16 +243,17 @@ namespace CC.Kinect
                     {
                         if (Math.Abs(diffArray[pointToAdd.X, pointToAdd.Y] - diffArray[point.X, point.Y]) < depthDelta)
                         {
-                            colorPixelIndex = 4 * (point.Y * frame.Width + point.X);
+                            colorPixelIndex = 4 * (point.X * frame.Height + point.Y);
                             colorPixels[colorPixelIndex] = 255;
                             colorPixels[colorPixelIndex + 1] = 0;
                             colorPixels[colorPixelIndex + 2] = 0;
                             q.Enqueue(pointToAdd);
                             visited[pointToAdd.X, pointToAdd.Y] = true;
+                            visitedList.Add(pointToAdd);
                         }
                         else
                         {
-                            colorPixelIndex = 4 * (point.Y * frame.Width + point.X);
+                            colorPixelIndex = 4 * (point.X * frame.Height + point.Y);
                             colorPixels[colorPixelIndex] = 0;
                             colorPixels[colorPixelIndex + 1] = 0;
                             colorPixels[colorPixelIndex + 2] = 255;
@@ -237,14 +262,6 @@ namespace CC.Kinect
                 }
             }
 
-            //for(int x=320;x<420;x++)
-            //    for (int y = 240; y < 290; y++)
-            //    {
-                 
-            //        colorPixels[colorPixelIndex] = 0;
-            //        colorPixels[colorPixelIndex + 1] = 0;
-            //        colorPixels[colorPixelIndex + 2] = 255;
-            //    }
 
             // Write the pixel data into our bitmap
             this.colorBitmap.WritePixels(
@@ -254,7 +271,23 @@ namespace CC.Kinect
                 0);
             System.Windows.Point pos = Mouse.GetPosition(Image);
             updateDataLabel((int)pos.X, (int)pos.Y);
-            frameProcessing = false;
+            lock (processingLock)
+            {
+                frameProcessing = false;
+            }
+        }
+
+        private void PrintPixelDepth(short[,] shorts)
+        {
+            Debug.WriteLine(" ");
+            for (int i = 0; i < shorts.GetLength(0); i++)
+            {
+                for (int j = 0; j < shorts.GetLength(1); j++)
+                {
+                    Debug.Write(shorts[i,j] + " ");
+                }
+                Debug.WriteLine(" ");
+            }
         }
 
         private List<Point> GetAdjacentPoints(Point position)
