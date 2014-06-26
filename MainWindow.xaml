@@ -1,7 +1,7 @@
 ﻿<Window x:Class="CC.Kinect.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Depth Basics" Height="735" Width="770" Loaded="WindowLoaded" Closing="WindowClosing">
+        Title="CADCAM Kinect" Height="735" Width="770" Loaded="WindowLoaded" Closing="WindowClosing">
 
     <Window.Resources>
         <SolidColorBrush x:Key="MediumGreyBrush" Color="#ff6e6e6e"/>
@@ -78,11 +78,11 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <DockPanel Grid.Row="0" Margin="0 0 0 20">
-            <Label Name="dataLabel" Width="70"></Label>
+            <Label Name="dataLabel" Width="120"></Label>
             <Slider Width="300" Minimum="10" Maximum="100" Name="depthSlider" ValueChanged="DepthSlider_OnValueChanged"></Slider>
-            <Label Name="sliderValueLabel" Width="100" Content="10"></Label>
-            <Label Width="100" Content="Obraz z kamery"/>
-            <CheckBox Width="20" Height="20" Name="CameraCheckBox" IsChecked="True" Checked="CameraCheckBox_OnChecked" Unchecked="CameraCheckBox_OnUnchecked"/>
+            <Label Name="sliderValueLabel" Width="60" Content="10"></Label>
+            <Label Width="107" Content="Obraz z kamery"/>
+            <CheckBox Name="CameraCheckBox" IsChecked="True" Checked="CameraCheckBox_OnChecked" Unchecked="CameraCheckBox_OnUnchecked" Margin="0,6"/>
         </DockPanel>
         <Viewbox Grid.Row="1" Stretch="Uniform" HorizontalAlignment="Center">
             <Image Name="Image" Width="640" Height="480" MouseMove="Image_MouseMove"/>
