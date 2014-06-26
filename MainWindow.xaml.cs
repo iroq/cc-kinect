@@ -37,6 +37,12 @@ namespace CC.Kinect
         /// </summary>
         private DepthImagePixel[] depthPixels;
 
+        /// <summary>
+        /// Intermediate storage for the camera data
+        /// </summary>
+        private byte[] cameraPixels;
+        object cameraPixelsLock = new object();
+
         short[,] diffArray;
         /// <summary>
         /// Intermediate storage for the depth data converted to color
@@ -85,6 +91,12 @@ namespace CC.Kinect
                 // Allocate space to put the color pixels we'll create
                 this.colorPixels = new byte[this.sensor.DepthStream.FramePixelDataLength * sizeof(int)];
 
+                // Turn on camera
+                this.sensor.ColorStream.Enable(ColorImageFormat.RgbResolution640x480Fps30);
+
+                // Allocate space for camera pixels
+                this.cameraPixels=new byte[this.sensor.ColorStream.FramePixelDataLength];
+
                 // This is the bitmap we'll display on-screen
                 this.colorBitmap = new WriteableBitmap(this.sensor.DepthStream.FrameWidth, this.sensor.DepthStream.FrameHeight, 96.0, 96.0, PixelFormats.Bgr32, null);
 
@@ -93,6 +105,8 @@ namespace CC.Kinect
 
                 // Add an event handler to be called whenever there is new depth frame data
                 this.sensor.DepthFrameReady += this.SensorDepthFrameReady;
+
+                this.sensor.ColorFrameReady += this.SensorColorFrameReady;
 
                 // Start the sensor!
                 try
@@ -125,6 +139,21 @@ namespace CC.Kinect
         }
 
         bool frameProcessing;
+
+        private void SensorColorFrameReady(object sender, ColorImageFrameReadyEventArgs e)
+        {
+            using (ColorImageFrame colorFrame = e.OpenColorImageFrame())
+            {
+                if (colorFrame != null)
+                {
+                    // Copy the pixel data from the image to a temporary array
+                    lock (cameraPixels)
+                    {
+                        colorFrame.CopyPixelDataTo(this.cameraPixels);
+                    }
+                }
+            }
+        }
 
         /// <summary>
         /// Event handler for Kinect sensor's DepthFrameReady event
