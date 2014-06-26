@@ -53,13 +53,14 @@ namespace CC.Kinect
         private Color[,] colorArray;
         private object depthLock = new object();
         private object processingLock = new object();
-
+        private Color highlightColor;
         /// <summary>
         /// Initializes a new instance of the MainWindow class.
         /// </summary>
         public MainWindow()
         {
             InitializeComponent();
+            highlightColor = Colors.Salmon;
         }
         /// <summary>
         /// Execute startup tasks
@@ -139,6 +140,8 @@ namespace CC.Kinect
         }
 
         bool frameProcessing;
+        private object useCameraImageLock = new object();
+        private bool useCameraImage;
 
         private void SensorColorFrameReady(object sender, ColorImageFrameReadyEventArgs e)
         {
@@ -194,6 +197,11 @@ namespace CC.Kinect
             {
                 kinectDepth = depthDelta;
             }
+            bool useCameraImageLocal = false;
+            lock (useCameraImageLock)
+            {
+                useCameraImageLocal = useCameraImage;
+            }
 
             System.Windows.Point pos = Mouse.GetPosition(Image);
             int posX = (int) pos.X;
@@ -207,11 +215,15 @@ namespace CC.Kinect
             if (posY >= frame.Height)
                 posY = frame.Height - 1;
             colorArray = new Color[frame.Width, frame.Height];
-            
-            lock (cameraPixels)
+
+            if (useCameraImageLocal)
             {
-                BytesToColors(colorArray, cameraPixels);
+                lock (cameraPixels)
+                {
+                    BytesToColors(cameraPixels, colorArray);
+                }
             }
+            
 
             updateDataLabel(posX, posY);
 
@@ -220,25 +232,28 @@ namespace CC.Kinect
                 for (int j = 0; j < frame.Height; j++)
                 {
                     diffArray[i, j] = depthPixels[j * frame.Width + i].Depth;
-                    colorArray[i,j] = Color.FromArgb(0, 0, 0, 0);
+                    //colorArray[i,j] = Color.FromArgb(0, 0, 0, 0);
                 }
             }
-
-            for (int i = 0; i < frame.Width; i++)
+            if (!useCameraImage)
             {
-                for (int j = 0; j < frame.Height; j++)
+                for (int i = 0; i < frame.Width; i++)
                 {
-                    if (diffArray[i, j] == 0)
+                    for (int j = 0; j < frame.Height; j++)
                     {
-                        colorArray[i, j] = Color.FromArgb(0, 0, 255, 0);
-                    }
-                    else
-                    {
-                        //byte color = (byte) diffArray[i, j];
-                        //colorArray[i, j] = Color.FromArgb(0, color, color, color);
+                        if (diffArray[i, j] == 0)
+                        {
+                            colorArray[i, j] = Color.FromArgb(0, 0, 255, 0);
+                        }
+                        else
+                        {
+                            byte color = (byte)diffArray[i, j];
+                            colorArray[i, j] = Color.FromArgb(0, color, color, color);
+                        }
                     }
                 }
             }
+            
 
             bool[,] visited = new bool[frame.Width, frame.Height];
             List<Point> visitedList = new List<Point>();
@@ -253,14 +268,21 @@ namespace CC.Kinect
                 {
                     if (!visited[pointToAdd.X, pointToAdd.Y])
                     {
-                        if (Math.Abs(diffArray[pointToAdd.X, pointToAdd.Y] - diffArray[point.X, point.Y]) < kinectDepth)
+                        if (diffArray[pointToAdd.X, pointToAdd.Y] != 0 && Math.Abs(diffArray[pointToAdd.X, pointToAdd.Y] - diffArray[point.X, point.Y]) < kinectDepth)
                         {
-                            var color = colorArray[pointToAdd.X, pointToAdd.Y];
-                            colorArray[pointToAdd.X, pointToAdd.Y] = 
-                                Color.FromArgb(0, 
-                                color.R, 
-                                (byte)(color.G - 10 < 0 ? 0 : color.G - 50),
-                                (byte)(color.B - 10 < 0 ? 0 : color.B - 50));
+                            if (useCameraImage)
+                            {
+                                var color = colorArray[pointToAdd.X, pointToAdd.Y];
+                                colorArray[pointToAdd.X, pointToAdd.Y] =
+                                    Color.FromArgb(0,
+                                        (byte) ((color.R + highlightColor.R)/2),
+                                        (byte) ((color.G + highlightColor.G)/2),
+                                        (byte) ((color.B + highlightColor.B)/2));
+                            }
+                            else
+                            {
+                                colorArray[pointToAdd.X, pointToAdd.Y] = Colors.Red;
+                            }
                             q.Enqueue(pointToAdd);
                         }
                         else
@@ -353,18 +375,18 @@ namespace CC.Kinect
                 }
         }
 
-        private void BytesToColors(Color[,] colors, byte[] bytes)
+        private void BytesToColors(byte[] bytes, Color[,] colors)
         {
             if (colors.Length * 4 != bytes.Length)
                 throw new ArgumentException("Non-matching array sizes!");
 
             int byteCount = 0;
             byte r, g, b;
-            for (int y = 0; y < colors.GetLength(1); y++)
+            for(int y=0; y<colors.GetLength(1);y++)
                 for (int x = 0; x < colors.GetLength(0); x++)
                 {
-                    g = bytes[byteCount++];
                     b = bytes[byteCount++];
+                    g = bytes[byteCount++];
                     r = bytes[byteCount++];
                     byteCount++;
                     colors[x, y] = Color.FromArgb(0, r, g, b);
@@ -397,6 +419,22 @@ namespace CC.Kinect
             }
             if(sliderValueLabel != null)
                 sliderValueLabel.Content = (short)depthSlider.Value;
+        }
+
+        private void CameraCheckBox_OnChecked(object sender, RoutedEventArgs e)
+        {
+            lock (useCameraImageLock)
+            {
+                useCameraImage = true;
+            }
+        }
+
+        private void CameraCheckBox_OnUnchecked(object sender, RoutedEventArgs e)
+        {
+            lock (useCameraImageLock)
+            {
+                useCameraImage = false;
+            }
         }
     }
 
